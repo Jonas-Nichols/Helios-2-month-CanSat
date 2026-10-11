@@ -3,6 +3,8 @@
 //
 // TODO:
 //      Find battery voltage
+//      Find panel voltage (maybe done?????)
+//      
 //
 // EXTRAS???
 //      add lebron sunshine
@@ -30,10 +32,11 @@
 
 
 struct dataFormat {
-  char[3] teamId;
+  char teamId[4];
+  int timeElapsed;
   int packetCount;
   int curStage;
-  char[3] mechState;
+  uint8_t mechState;
   float altitude;
   int temperature;
   float batteryVoltage;
@@ -52,6 +55,7 @@ struct dataFormat {
 
 dataFormat data;
 
+
 // Barometer and Temperature sensor
 Adafruit_BMP3XX bmpSensor; // I2C var for Barometer
 
@@ -64,8 +68,8 @@ SFE_UBLOX_GNSS GNSS;
 // Other pins
 const int operationLight = 18;
 const int buzzer = 19;
-const int releasePin = 25;
-const int panelServoPin = 24;
+const int releasePin = 32;
+const int panelServoPin = 33;
 const int panelAInputPin = 36;
 const int panelBInputPin = 39;
 
@@ -78,7 +82,7 @@ Servo panelServo;
 const int panelExtensionAmount = 90;
 bool panelExtended = 0;
 
-char[3] teamId = "001";
+char teamId[4] = "001";
 float altitude = 0;
 int velocity;
 int packetCount = 0;
@@ -88,7 +92,7 @@ float batteryVoltage;
 float panelAVolt;
 float panelBVolt;
 int morseUnit = 10;    // in ms
-char[3] mechState = "00";
+uint8_t mechState = 0x00;
 float PEtimeStarted = 0;
 float lastTransmission = 0;
 
@@ -108,7 +112,7 @@ int satsUsed;
 
 // ESP-NOW
 // teamId, timeElapsed, packetCount, stage, mechState, altitude, temperature, batteryVoltage, latitude, longitude, satsUsed,gyrox,y,z,accelerationX,accelerationY,accelerationZ,panelVolt1,panelVolt2,,extraData
-char[3] command;
+char command[4];
 esp_now_peer_info_t groundInfo;
 // Ground MAC
 uint8_t MAC[] = {
@@ -164,7 +168,7 @@ void setup() {
 
   // register and add ground
   memcpy(groundInfo.peer_addr, MAC, 6);
-  groundInfo.channel = 0;
+  groundInfo.channel = 1;
   groundInfo.encrypt = false;
   if (esp_now_add_peer(&groundInfo) != ESP_OK) { alert(2); }
   // register callback function
@@ -204,8 +208,8 @@ void setup() {
   releaseServo.attach(releasePin);
   panelServo.attach(panelServoPin);
 
-	releaseServo.write(90);
-	panelServo.write(90);
+	releaseServo.write(0);
+	panelServo.write(0);
 
   // set up panel voltage readers
   analogSetAttenuation(ADC_0db);
@@ -273,6 +277,9 @@ void flightState(){
       break;
 
     case (landed):
+      if (!panelExtended && (millis()-PEtimeStarted) > 5000) {
+        panelExtend();
+      }
       break;
   }
 
@@ -322,7 +329,7 @@ void sampleSensors() {
 void release() {
   if (released) { return; }
 
-  releaseServo.write(90);
+  releaseServo.write(releaseExtensionAmount);
 }
 
 
@@ -330,7 +337,7 @@ void panelExtend() {
   if (panelExtended) { return; }
 
   panelServo.write(panelExtensionAmount);
-  mechState = "11";
+  mechState = 0x11;
   panelExtended = true;
 }
 
@@ -340,7 +347,7 @@ void onDataRecv(
   const uint8_t *incomingData,
   int len
 ) {
-  command = (char*)incomingData;
+  strcpy(command,(char*) incomingData);
 
   switch (command[0]) {
     case 'r':
@@ -353,35 +360,53 @@ void onDataRecv(
       alert();
       break;
     case 's':
-      curStage = static_cast<stage>(command[1]);
+      curStage = static_cast<stage>((int)command[1]-48);
       break;
   }
 }
 
 
 void saveTransmitData() {
-  data =  = {"001",
-  millis(),
-  packetCount,
-  curStage,
-  mechState,
-  altitude,
-  temperature,
-  batteryVoltage,
-  latitude,
-  longitude,
-  satsUsed,
-  gyroX,
-  gyroY,
-  gyroZ,
-  accelerationX,
-  accelerationY,
-  accelerationZ,
-  panelAVolt,
-  panelBVolt,
-};
 
-  Serial.println(data);
+  strcpy(data.teamId,"001");
+  data.timeElapsed = millis();
+  data.packetCount = packetCount;
+  data.curStage = curStage;
+  data.mechState = mechState;
+  data.altitude = altitude;
+  data.temperature = temperature;
+  data.batteryVoltage = batteryVoltage;
+  data.latitude = latitude;
+  data.longitude = longitude;
+  data.satsUsed = satsUsed;
+  data.gyroX = gyroX;
+  data.gyroY = gyroY;
+  data.gyroZ = gyroZ;
+  data.accelerationX = accelerationX;
+  data.accelerationY = accelerationY;
+  data.accelerationZ = accelerationZ;
+  data.panelAVolt = panelAVolt;
+  data.panelBVolt = panelBVolt;
+
+  Serial.print(data.teamId); Serial.print(',');
+  Serial.print(data.timeElapsed); Serial.print(',');
+  Serial.print(data.packetCount); Serial.print(',');
+  Serial.print(data.curStage); Serial.print(',');
+  Serial.print(data.mechState); Serial.print(',');
+  Serial.print(data.altitude); Serial.print(',');
+  Serial.print(data.temperature); Serial.print(',');
+  Serial.print(data.batteryVoltage); Serial.print(',');
+  Serial.print(data.latitude); Serial.print(',');
+  Serial.print(data.longitude); Serial.print(',');
+  Serial.print(data.satsUsed); Serial.print(',');
+  Serial.print(data.gyroX); Serial.print(',');
+  Serial.print(data.gyroY); Serial.print(',');
+  Serial.print(data.gyroZ); Serial.print(',');
+  Serial.print(data.accelerationX); Serial.print(',');
+  Serial.print(data.accelerationY); Serial.print(',');
+  Serial.print(data.accelerationZ); Serial.print(',');
+  Serial.print(data.panelAVolt); Serial.print(',');
+  Serial.println(data.panelBVolt);
   
   if (esp_now_send(MAC, (uint8_t *) &data, sizeof(data)) == ESP_OK) {
     // if sent correctly
