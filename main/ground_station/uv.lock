@@ -476,10 +476,14 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
+    { name = "websockets" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "fastapi", extras = ["standard"], specifier = ">=0.143.0" }]
+requires-dist = [
+    { name = "fastapi", extras = ["standard"], specifier = ">=0.143.0" },
+    { name = "websockets", specifier = ">=17.2" },
+]
 
 [[package]]
 name = "h11"
