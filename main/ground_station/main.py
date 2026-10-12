@@ -1,6 +1,5 @@
 # use Websockets
 from fastapi import FastAPI, WebSocket
-from fastapi.responses import HTMLResponse
 
 app = FastAPI()
 
@@ -13,5 +12,25 @@ async def get():
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     while True:
-        data = await websocket.receive_json()
+        data = await websocket.receive_text()
         await websocket.send_json("{'a':1}")
+
+#   char teamId[4];
+#   int timeElapsed;
+#   int packetCount;
+#   int curStage;
+#   uint8_t mechState;
+#   float altitude;
+#   int temperature;
+#   float batteryVoltage;
+#   float latitude;
+#   float longitude;
+#   int satsUsed;
+#   float gyroX;
+#   float gyroY;
+#   float gyroZ;
+#   float accelerationX;
+#   float accelerationY;
+#   float accelerationZ;
+#   float panelAVolt;
+#   float panelBVolt;

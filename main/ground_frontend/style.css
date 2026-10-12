@@ -1,0 +1,43 @@
+:root {
+  --main-height: 40em;
+}
+
+body {
+  font-size: 16px;
+}
+
+#top-bar {
+  margin: 0.5em;
+}
+
+.panel {
+  
+  /* border: solid; */
+  height: var(--main-height);
+  
+}
+
+.card {
+  margin: 0.25em;
+}
+.chart {
+  height: calc((var(--main-height) / 3) - 0.50em);
+  margin: 0.25em 0 0.25em 0;
+  
+}
+
+#table-l {
+ height: 13.25em;
+}
+#table-r {
+  height: 9.25em;
+}
+
+#CanSatModel {
+  width: 100%;
+  height: calc((var(--main-height)) - 14.75em);
+}
+
+#map {
+  height: calc((var(--main-height)) - 1em);
+}

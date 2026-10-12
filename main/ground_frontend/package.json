@@ -1,0 +1,24 @@
+{
+  "name": "ground_frontend",
+  "version": "1.0.0",
+  "description": "frontend for helios",
+  "homepage": "https://github.com/Jonas-Nichols/Helios-2-month-CanSat-#readme",
+  "bugs": {
+    "url": "https://github.com/Jonas-Nichols/Helios-2-month-CanSat-/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jonas-Nichols/Helios-2-month-CanSat-.git"
+  },
+  "license": "ISC",
+  "author": "Jonas Nichols",
+  "type": "commonjs",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "electron": "^44.7.0"
+  }
+}
