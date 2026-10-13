@@ -1,5 +1,6 @@
 # use Websockets
 from fastapi import FastAPI, WebSocket
+import json
 
 app = FastAPI()
 
@@ -11,9 +12,11 @@ async def get():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    await websocket.send_json([1,1234,34,1,0,400,30,3,34,34,5,0,0,0,4,2,8,0,0])
     while True:
         data = await websocket.receive_text()
-        await websocket.send_json("{'a':1}")
+        print(data)
+        await websocket.send_json('[1,1234,34,1,0,400,30,3,34,34,5,0,0,90,4,2,8,0,0]')
 
 #   char teamId[4];
 #   int timeElapsed;
