@@ -3,7 +3,7 @@
 + MRR
 
 # payload
-+ hope not
++ ask about parallel processing for gps time accuracy
 
 # ground ESP
 + hope not
@@ -11,16 +11,14 @@
 # backend
 + error handling
 + add pyserial
-+ handle input -> json
 + test websocket
++ save to csv
 + pack it up
 
 
 # frontend
-+ modify charts
-+ modify orientation
-+ modify mechstate
-+ modify gps
++ error for model-viewer
++ show mechstate
 + download libs
 + download tiles
 + pack it up

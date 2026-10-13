@@ -3,6 +3,7 @@
 }
 
 body {
+  background-color: #ffaaaa;
   font-size: 16px;
 }
 
@@ -30,14 +31,17 @@ body {
  height: 13.25em;
 }
 #table-r {
-  height: 9.25em;
+  height: 11.25em;
 }
 
 #CanSatModel {
-  width: 100%;
-  height: calc((var(--main-height)) - 14.75em);
+  font-size: 16px;
+  width:100%;
+  height: calc((var(--main-height) - 14.50em));
 }
 
+
 #map {
-  height: calc((var(--main-height)) - 1em);
+  font-size: 16px;
+  height: calc((var(--main-height) - 12.5em));
 }
