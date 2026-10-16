@@ -212,6 +212,9 @@ function sendCommand(command){
 }
 
 // button links
+document.getElementById("txOnBut").addEventListener("click", () => { sendCommand('r') });
+document.getElementById("calBut").addEventListener("click", () => { sendCommand('e') });
+
 document.getElementById("releaseBut").addEventListener("click",()=>{sendCommand('r')});
 document.getElementById("extensionBut").addEventListener("click", () => {sendCommand('e')});
 

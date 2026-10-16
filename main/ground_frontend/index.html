@@ -94,21 +94,31 @@
               </table>
             </div>
 
-            <div id="map" class="row card"></div>
+            <div id="map" class="row card"></div> 
           </div>
           
-          <div id="buttonPanel" class="col panel">
-            <div id="btn-group-top" class="card row list-group">
-                <button type="button" class="list-group-item list-group-item-action list-group-item-danger" id="releaseBut">Payload Release</button>
-                <button type="button" class="list-group-item list-group-item-action list-group-item-danger" id="extensionBut">Panel Extension</button>
+          <div id="buttonPanel" class="col panel"> 
+            <div class="card row list-group" role="group">
+              <button type="button" class="list-group-item list-group-item-action list-group-item-primary" id="txOnBut">Telemetry On</button>
+              <button type="button" class="list-group-item list-group-item-action list-group-item-primary" id="calBut">Calibrate</button>
+            </div>
+
+            <div class="card row list-group" role="group">
+              <button type="button" class="list-group-item list-group-item-action list-group-item-danger" id="releaseBut">Release</button>
+              <button type="button" class="list-group-item list-group-item-action list-group-item-danger" id="extensionBut">Panel Extension</button>
             </div>
             
-            <div id="btn-group-bot" class="card row list-group">
+            <div class="card row list-group">
               <button type="button" class="list-group-item list-group-item-action active" id="s0But">Pre-Flight</button>
               <button type="button" class="list-group-item list-group-item-action" id="s1But">Ascent</button>
               <button type="button" class="list-group-item list-group-item-action" id="s2But">Apogee</button>
               <button type="button" class="list-group-item list-group-item-action" id="s3But">Descent</button>
               <button type="button" class="list-group-item list-group-item-action" id="s4But">Landed</button>
+            </div>
+
+            <div class="card row list-group" role="group">
+              <button type="button" class="list-group-item list-group-item-action list-group-item-danger"
+                id="LebronBut">Lebron</button>
             </div>
             
             

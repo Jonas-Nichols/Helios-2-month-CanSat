@@ -109,6 +109,8 @@ long latitude;
 long longitude;
 int satsUsed;
 
+bool txOn;
+
 
 // ESP-NOW
 // teamId, timeElapsed, packetCount, stage, mechState, altitude, temperature, batteryVoltage, latitude, longitude, satsUsed,gyrox,y,z,accelerationX,accelerationY,accelerationZ,panelVolt1,panelVolt2,,extraData
@@ -119,7 +121,7 @@ uint8_t MAC[] = {
   0x68, 0x09, 0x47, 0x9C, 0xA8, 0xDC
 };
 
-
+void calibrate();
 void sampleSensors();
 void saveTransmitData();
 void panelExtend();
@@ -188,12 +190,8 @@ void setup() {
   bmpSensor.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
   bmpSensor.setOutputDataRate(BMP3_ODR_50_HZ);
 
-  // First reading is inaccurate; throw away values
+  // First reading is inaccurate for BMP; throw away values
   sampleSensors();
-
-  // Set pressure of current (lowest) altitude in Hpa
-  sampleSensors();
-  initalPressure = (bmpSensor.pressure / 100);
 
   // Set up bno Sensor (orintation and accelometer)
   if (!bnoSensor.begin()) { alert(4); }
@@ -215,6 +213,11 @@ void setup() {
   analogSetAttenuation(ADC_0db);
 
   beep(10);
+
+  calibrate();
+
+  txOn = false;
+  while(!txOn){};
 
   curStage = launchPad;
 } 
@@ -286,6 +289,15 @@ void flightState(){
 }
 
 
+void calibrate() {
+
+  sampleSensors();
+  // pressure sensor
+  initalPressure = (bmpSensor.pressure / 100);
+
+}
+
+
 void sampleSensors() {
 
   // Sample solar cell voltages
@@ -341,7 +353,7 @@ void panelExtend() {
   panelExtended = true;
 }
 
-// r: release | e: extend | a: alert | s#: swap stage
+// r: release | e: extend | a: alert | s#: swap stage | c: calibrate | t: telemetery on
 void onDataRecv(
   const esp_now_recv_info_t *info,
   const uint8_t *incomingData,
@@ -361,6 +373,12 @@ void onDataRecv(
       break;
     case 's':
       curStage = static_cast<stage>((int)command[1]-48);
+      break;
+    case 'c':
+      calibrate();
+      break;
+    case 't':
+      txOn = true;
       break;
   }
 }
