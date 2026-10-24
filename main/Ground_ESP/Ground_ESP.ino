@@ -11,7 +11,7 @@ struct dataFormat {
   int curStage;
   uint8_t mechState;
   float altitude;
-  int temperature;
+  float temperature;
   float batteryVoltage;
   float latitude;
   float longitude;
@@ -22,21 +22,21 @@ struct dataFormat {
   float accelerationX;
   float accelerationY;
   float accelerationZ;
-  float panelAVolt;
-  float panelBVolt;
+  int panelAVolt;
+  int panelBVolt;
 };
 String command;
 dataFormat data;
 
 esp_now_peer_info_t canInfo;
 uint8_t MAC[] = {
-  0x20, 0x9B, 0xA9, 0x68, 0xEB, 0xD4
+  0x68, 0x09, 0x47, 0x9C, 0xA8, 0xDC
 };
 
 void onDataRecv(const esp_now_recv_info_t *info, const uint8_t *incomingData, int len);
 
 void setup() {
-  Serial.begin(112700); 
+  Serial.begin(115200); 
 
   // start Wifi
   WiFi.mode(WIFI_STA);  
@@ -49,15 +49,15 @@ void setup() {
   canInfo.channel = 1;
   canInfo.encrypt = false;
   if (esp_now_add_peer(&canInfo) != ESP_OK) { Serial.println("CANSAT NOT FOUND"); }
-  // // register callback function
+  // register callback function
   esp_now_register_recv_cb(esp_now_recv_cb_t(onDataRecv));
 }
 
 void loop() {
+  // Serial.println("[1,80002,34,1,0,400,30,3,34,34,5,0,0,90,4,2,8,0,0]");
   while(Serial.available()) {
     command = Serial.readString();
     send();
-    Serial.println(command);
   }
 }
 
@@ -70,6 +70,7 @@ void send() {
 
 void onDataRecv(const esp_now_recv_info_t *info, const uint8_t *incomingData, int len) {
   memcpy(&data, incomingData, sizeof(data));
+  Serial.print('[');
   Serial.print(data.teamId); Serial.print(',');
   Serial.print(data.timeElapsed); Serial.print(',');
   Serial.print(data.packetCount); Serial.print(',');
@@ -88,5 +89,6 @@ void onDataRecv(const esp_now_recv_info_t *info, const uint8_t *incomingData, in
   Serial.print(data.accelerationY); Serial.print(',');
   Serial.print(data.accelerationZ); Serial.print(',');
   Serial.print(data.panelAVolt); Serial.print(',');
-  Serial.println(data.panelBVolt);
+  Serial.print(data.panelBVolt);
+  Serial.println(']');
 }

@@ -49,8 +49,8 @@ const altctx = document.getElementById('altitude');
 const tempctx = document.getElementById('temperature');
 const batVoltctx = document.getElementById('batteryVoltage');
 
-let altY = [0,10,30,39,46,50,63];
-let altT = [0,0.26,0.50,0.78,1.03,1.30,1.56];
+let altY = [];
+let altT = [];
 
 let tempY = [];
 let tempT = [];
@@ -132,11 +132,11 @@ connection.onmessage = function(event) {
 
   // add chart data
   altCt.data.labels.push(curVal[1]);
-  altCt.data.datasets[0].data.push(curVal[6]);
+  altCt.data.datasets[0].data.push(curVal[7]);
   tempCt.data.labels.push(curVal[1]);
-  tempCt.data.datasets[0].data.push(curVal[7]);
+  tempCt.data.datasets[0].data.push(curVal[6]);
   batVoltCt.data.labels.push(curVal[1]);
-  batVoltCt.data.datasets[0].data.push(curVal[5]);
+  batVoltCt.data.datasets[0].data.push(curVal[4]);
   
   altCt.update();
   tempCt.update();
@@ -181,7 +181,8 @@ connection.onmessage = function(event) {
   }
 
   // orientation and mechstate display
-  CanSatModel.orientation = `${curVal[11]}deg ${curVal[12]}deg ${curVal[13]}deg`;
+  CanSatModel.orientation = `${curVal[11]}rad ${curVal[12]}rad ${curVal[13]}rad`;
+  CanSatModel.updateFraming();
 
 }
   //0 char teamId[4];       //
@@ -206,14 +207,13 @@ connection.onmessage = function(event) {
 
 // ws outgoing data
 function sendCommand(command){
-  alert(command);
-  ws.send(command);
-  alert('sent');
+  connection.send(command);
 }
 
 // button links
-document.getElementById("txOnBut").addEventListener("click", () => { sendCommand('r') });
-document.getElementById("calBut").addEventListener("click", () => { sendCommand('e') });
+document.getElementById("primeBut").addEventListener("click", () => { sendCommand('p') });
+document.getElementById("txOnBut").addEventListener("click", () => { sendCommand('t') });
+document.getElementById("calBut").addEventListener("click", () => { sendCommand('c') });
 
 document.getElementById("releaseBut").addEventListener("click",()=>{sendCommand('r')});
 document.getElementById("extensionBut").addEventListener("click", () => {sendCommand('e')});

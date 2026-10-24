@@ -1,6 +1,5 @@
 # things to get done
 + make todo list
-+ MRR
 
 # payload
 + ask about parallel processing for gps time accuracy

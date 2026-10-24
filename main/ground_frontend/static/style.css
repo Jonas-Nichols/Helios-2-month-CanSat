@@ -19,6 +19,7 @@ body {
 }
 
 .card {
+  /* border: none; */
   margin: 0.25em;
 }
 .chart {

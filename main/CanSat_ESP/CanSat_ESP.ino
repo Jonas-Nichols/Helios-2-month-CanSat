@@ -4,7 +4,7 @@
 // TODO:
 //      Find battery voltage
 //      Find panel voltage (maybe done?????)
-//      
+//
 //
 // EXTRAS???
 //      add lebron sunshine
@@ -25,10 +25,10 @@
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
 #include <SparkFun_u-blox_GNSS_v3.h>
-#include <ESP32Servo.h>
 #include <WiFi.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
+#include <ESP32Servo.h>
 
 
 struct dataFormat {
@@ -38,7 +38,7 @@ struct dataFormat {
   int curStage;
   uint8_t mechState;
   float altitude;
-  int temperature;
+  float temperature;
   float batteryVoltage;
   float latitude;
   float longitude;
@@ -49,15 +49,18 @@ struct dataFormat {
   float accelerationX;
   float accelerationY;
   float accelerationZ;
-  float panelAVolt;
-  float panelBVolt;
+  int panelAVolt;
+  int panelBVolt;
+  float orientationX;
+  float orientationY;
+  float orientationZ;
 };
 
 dataFormat data;
 
 
 // Barometer and Temperature sensor
-Adafruit_BMP3XX bmpSensor; // I2C var for Barometer
+Adafruit_BMP3XX bmpSensor;  // I2C var for Barometer
 
 // Accelometer and Rotation sensor
 Adafruit_BNO055 bnoSensor = Adafruit_BNO055(55, 0x28, &Wire);
@@ -68,18 +71,21 @@ SFE_UBLOX_GNSS GNSS;
 // Other pins
 const int operationLight = 18;
 const int buzzer = 19;
-const int releasePin = 32;
-const int panelServoPin = 33;
-const int panelAInputPin = 36;
-const int panelBInputPin = 39;
+const int releasePin = 12;
+const int panelServoPin = 14;
+const int panelAInputPin = 33;
+const int panelBInputPin = 26;
+const int batteryVoltageInputPin = 25;
 
 
 // servo information
 Servo releaseServo;
-const int releaseExtensionAmount = 55;
+const int releaseExtensionAmount = 90;
+const int releaseStartAmount = 140;
+const int releaseAmount = 160;
 bool released = 0;
 Servo panelServo;
-const int panelExtensionAmount = 90;
+const int panelExtensionAmount = 180;
 bool panelExtended = 0;
 
 char teamId[4] = "001";
@@ -91,10 +97,12 @@ float initalPressure;
 float batteryVoltage;
 float panelAVolt;
 float panelBVolt;
-int morseUnit = 10;    // in ms
+int morseUnit = 10;  // in ms
 uint8_t mechState = 0x00;
 float PEtimeStarted = 0;
-float lastTransmission = 0;
+int lastTransmission = 0;
+int lastSave = 0;
+int packetApogee;
 
 float gyroX;
 float gyroY;
@@ -103,6 +111,10 @@ float gyroZ;
 float accelerationX;
 float accelerationY;
 float accelerationZ;
+
+float orientationX;
+float orientationY;
+float orientationZ;
 
 long lastGPSsample;
 long latitude;
@@ -113,17 +125,18 @@ bool txOn;
 
 
 // ESP-NOW
-// teamId, timeElapsed, packetCount, stage, mechState, altitude, temperature, batteryVoltage, latitude, longitude, satsUsed,gyrox,y,z,accelerationX,accelerationY,accelerationZ,panelVolt1,panelVolt2,,extraData
+// teamId, timeElapsed, packetCount, stage, mechState, altitude, temperature, batteryVoltage, latitude, longitude, satsUsed,gyrox,y,z,accelerationX,accelerationY,accelerationZ,panelVolt1,panelVolt2,orientationx,y,z
 char command[4];
 esp_now_peer_info_t groundInfo;
 // Ground MAC
 uint8_t MAC[] = {
-  0x68, 0x09, 0x47, 0x9C, 0xA8, 0xDC
+  0x20, 0x9B, 0xA9, 0x68, 0xEB, 0xD4
 };
 
 void calibrate();
 void sampleSensors();
-void saveTransmitData();
+void TransmitData();
+void saveData();
 void panelExtend();
 void release();
 
@@ -161,9 +174,10 @@ void setup() {
 
   // Set up ESP-NOW / Wifi
   Serial.begin(115200);
+
   // start Wifi
-  WiFi.mode(WIFI_STA);  
-  while(!WiFi.STA.started()){ delay(100); }
+  WiFi.mode(WIFI_STA);
+  while (!WiFi.STA.started()) { delay(100); }
   // Print the MAC address
   // init ESP NOW
   if (esp_now_init() != ESP_OK) { alert(1); }
@@ -199,47 +213,57 @@ void setup() {
   // Start GPS
   if (!GNSS.begin()) { alert(5); }
 
-  GNSS.setI2COutput(COM_TYPE_UBX); // Sets output to UBX only instead of the standard NMEA
+  GNSS.setI2COutput(COM_TYPE_UBX);  // Sets output to UBX only instead of the standard NMEA
   GNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT);
 
   // set up servos
   releaseServo.attach(releasePin);
   panelServo.attach(panelServoPin);
 
-	releaseServo.write(0);
-	panelServo.write(0);
+  releaseServo.write(releaseStartAmount);
+  panelServo.write(90);
+
 
   // set up panel voltage readers
-  analogSetAttenuation(ADC_0db);
+  analogSetPinAttenuation(panelAInputPin,ADC_0db);
+  analogSetPinAttenuation(panelBInputPin,ADC_0db);
+  analogSetPinAttenuation(batteryVoltageInputPin,ADC_11db);
+  pinMode(panelAInputPin, INPUT);
+  pinMode(panelBInputPin, INPUT);
+  pinMode(batteryVoltageInputPin,INPUT);
 
-  beep(10);
+  pinMode(operationLight,OUTPUT);
+  digitalWrite(operationLight,HIGH);
 
   calibrate();
 
   txOn = false;
-  while(!txOn){};
-
   curStage = launchPad;
-} 
+}
 
 
 void loop() {
 
-  // run at 4 Hz (0.25 seconds rate)
-  if ((millis() - lastTransmission) > 250) {
+  // run at 8 Hz (0.125 seconds rate)
+  if (txOn && ((millis() - lastSave) > 125)) {
 
-    lastTransmission = millis(); // having it up here keeps the scheduling on time marginally better
+    lastSave = millis();  // having it up here keeps the scheduling on time marginally better
     sampleSensors();
-    saveTransmitData();
+    saveData();
+  }
 
+  // run at 4 Hz (0.25 seconds rate)
+  if (txOn && ((millis() - lastTransmission) > 250)) {
+
+    lastTransmission = millis();  // having it up here keeps the scheduling on time marginally better
+    transmitData();
   }
 
   flightState();
-
 }
 
 
-void flightState(){
+void flightState() {
   switch (curStage) {
     case (launchPad):
 
@@ -253,6 +277,7 @@ void flightState(){
       // when at desired height
       if (altitude >= 530) {
         curStage = apogee;
+        packetApogee = packetCount;
       }
       break;
 
@@ -262,7 +287,9 @@ void flightState(){
       PEtimeStarted = millis();
 
       curStage = descent;
-      break;
+      if (packetCount > packetApogee) {
+        break;
+      }
 
     case (descent):
 
@@ -271,21 +298,19 @@ void flightState(){
 
         digitalWrite(buzzer, HIGH);
         curStage = landed;
-
       }
 
-      if (!panelExtended && (millis()-PEtimeStarted) > 5000) {
+      if (!panelExtended && (millis() - PEtimeStarted) > 5000) {
         panelExtend();
       }
       break;
 
     case (landed):
-      if (!panelExtended && (millis()-PEtimeStarted) > 5000) {
+      if (!panelExtended && (millis() - PEtimeStarted) > 5000) {
         panelExtend();
       }
       break;
   }
-
 }
 
 
@@ -294,15 +319,15 @@ void calibrate() {
   sampleSensors();
   // pressure sensor
   initalPressure = (bmpSensor.pressure / 100);
-
 }
 
 
 void sampleSensors() {
 
   // Sample solar cell voltages
-  panelAVolt = xTomV(analogRead(panelAInputPin));
-  panelBVolt = xTomV(analogRead(panelBInputPin));
+  panelAVolt = ((analogRead(panelAInputPin) * 850) / 4095);
+  panelBVolt = ((analogRead(panelBInputPin) * 850) / 4095);
+  batteryVoltage = ((analogRead(batteryVoltageInputPin) * 6) / 4095);
 
   // Sample pressure and temperature sensors
   bmpSensor.performReading();
@@ -323,6 +348,10 @@ void sampleSensors() {
   accelerationY = accelerometerData.acceleration.y;
   accelerationZ = accelerometerData.acceleration.z;
 
+  orientationX = ((float)event.orientation.x);
+  orientationY = ((float)event.orientation.y);
+  orientationZ = ((float)event.orientation.z);
+
   // Only sample GPS again if it has been 1 second
   if (millis() - lastGPSsample > 1000) {
 
@@ -330,63 +359,11 @@ void sampleSensors() {
     longitude = GNSS.getLongitude();
     latitude = GNSS.getLatitude();
     satsUsed = GNSS.getSIV();
-    
+
     lastGPSsample = millis();
-  
   }
 
-}
-
-
-void release() {
-  if (released) { return; }
-
-  releaseServo.write(releaseExtensionAmount);
-}
-
-
-void panelExtend() {
-  if (panelExtended) { return; }
-
-  panelServo.write(panelExtensionAmount);
-  mechState = 0x11;
-  panelExtended = true;
-}
-
-// r: release | e: extend | a: alert | s#: swap stage | c: calibrate | t: telemetery on
-void onDataRecv(
-  const esp_now_recv_info_t *info,
-  const uint8_t *incomingData,
-  int len
-) {
-  strcpy(command,(char*) incomingData);
-
-  switch (command[0]) {
-    case 'r':
-      release();
-      break;
-    case 'e':
-      panelExtend();
-      break;
-    case 'a':
-      alert();
-      break;
-    case 's':
-      curStage = static_cast<stage>((int)command[1]-48);
-      break;
-    case 'c':
-      calibrate();
-      break;
-    case 't':
-      txOn = true;
-      break;
-  }
-}
-
-
-void saveTransmitData() {
-
-  strcpy(data.teamId,"001");
+  strcpy(data.teamId, "001");
   data.timeElapsed = millis();
   data.packetCount = packetCount;
   data.curStage = curStage;
@@ -405,34 +382,109 @@ void saveTransmitData() {
   data.accelerationZ = accelerationZ;
   data.panelAVolt = panelAVolt;
   data.panelBVolt = panelBVolt;
+  data.orientationX = orientationX;
+  data.orientationY = orientationY;
+  data.orientationZ = orientationZ;
+}
 
-  Serial.print(data.teamId); Serial.print(',');
-  Serial.print(data.timeElapsed); Serial.print(',');
-  Serial.print(data.packetCount); Serial.print(',');
-  Serial.print(data.curStage); Serial.print(',');
-  Serial.print(data.mechState); Serial.print(',');
-  Serial.print(data.altitude); Serial.print(',');
-  Serial.print(data.temperature); Serial.print(',');
-  Serial.print(data.batteryVoltage); Serial.print(',');
-  Serial.print(data.latitude); Serial.print(',');
-  Serial.print(data.longitude); Serial.print(',');
-  Serial.print(data.satsUsed); Serial.print(',');
-  Serial.print(data.gyroX); Serial.print(',');
-  Serial.print(data.gyroY); Serial.print(',');
-  Serial.print(data.gyroZ); Serial.print(',');
-  Serial.print(data.accelerationX); Serial.print(',');
-  Serial.print(data.accelerationY); Serial.print(',');
-  Serial.print(data.accelerationZ); Serial.print(',');
-  Serial.print(data.panelAVolt); Serial.print(',');
+
+void release() {
+  if (released) { return; }
+  releaseServo.write(releaseAmount);
+}
+
+
+void panelExtend() {
+  if (panelExtended) { return; }
+  panelServo.write(panelExtensionAmount);
+  mechState = 0x11;
+  panelExtended = true;
+}
+
+// r: release | e: extend | a: alert | s#: swap stage | c: calibrate | t: telemetery on
+void onDataRecv(
+  const esp_now_recv_info_t *info,
+  const uint8_t *incomingData,
+  int len) {
+  strcpy(command, (char *)incomingData);
+  Serial.println(command);
+
+  switch (command[0]) {
+    case 'r':
+      release();
+      break;
+    case 'e':
+      panelExtend();
+      break;
+    case 'a':
+      alert();
+      break;
+    case 's':
+      curStage = static_cast<stage>((int)command[1] - 48);
+      break;
+    case 'c':
+      calibrate();
+      break;
+    case 't':
+      txOn = true;
+      break;
+    case 'p':
+      releaseServo.write(releaseExtensionAmount);
+      
+      panelServo.write(90);
+  }
+}
+
+
+void saveData() {
+
+  Serial.print(data.teamId);
+  Serial.print(',');
+  Serial.print(data.timeElapsed);
+  Serial.print(',');
+  Serial.print(data.packetCount);
+  Serial.print(',');
+  Serial.print(data.curStage);
+  Serial.print(',');
+  Serial.print(data.mechState);
+  Serial.print(',');
+  Serial.print(data.altitude);
+  Serial.print(',');
+  Serial.print(data.temperature);
+  Serial.print(',');
+  Serial.print(data.batteryVoltage);
+  Serial.print(',');
+  Serial.print(data.latitude);
+  Serial.print(',');
+  Serial.print(data.longitude);
+  Serial.print(',');
+  Serial.print(data.satsUsed);
+  Serial.print(',');
+  Serial.print(data.gyroX);
+  Serial.print(',');
+  Serial.print(data.gyroY);
+  Serial.print(',');
+  Serial.print(data.gyroZ);
+  Serial.print(',');
+  Serial.print(data.accelerationX);
+  Serial.print(',');
+  Serial.print(data.accelerationY);
+  Serial.print(',');
+  Serial.print(data.accelerationZ);
+  Serial.print(',');
+  Serial.print(data.panelAVolt);
+  Serial.print(',');
   Serial.println(data.panelBVolt);
-  
-  if (esp_now_send(MAC, (uint8_t *) &data, sizeof(data)) == ESP_OK) {
+}
+
+void transmitData() {
+
+  if (esp_now_send(MAC, (uint8_t *)&data, sizeof(data)) == ESP_OK) {
     // if sent correctly
     packetCount++;
   }
-  
-  
-  
+
+
   // teamId, timeElapsed, packetCount, stage, mechState, altitude, temperature, batteryVoltage,
   // latitude, longitude, satsUsed,gyrox,y,z,accelerationX,accelerationY,accelerationZ,panelVolt1,panelVolt2,,extraData
 }
@@ -445,7 +497,7 @@ void alert(int num) {
   // else if (num > 5 && num < 10) {
 
   //   for (int i = 0; i < 5; i++) {
-      
+
   //     if (num > 0) {
   //       beep(morseUnit);
   //       num--;
@@ -454,12 +506,12 @@ void alert(int num) {
   //       beep(morseUnit*3);
   //     }
   //     delay(morseUnit);
-      
+
   //   }
   // }
   // else {
   //   for (int i = 0; i < 5; i++) {
-      
+
   //     if (num > 0) {
   //       beep(morseUnit*3);
   //       num--;
@@ -468,7 +520,7 @@ void alert(int num) {
   //       beep(morseUnit);
   //     }
   //     delay(morseUnit);
-      
+
   //   }
   // }
 }
@@ -482,5 +534,6 @@ void beep(int length) {
 
 // converts the analog input to mV
 int xTomV(int bits) {
-  return (((bits / 4095) * 850) + 100);
+  return (((bits * 850) / 4095));
+  // return (((bits / 4095) * 850) + 100);
 }
